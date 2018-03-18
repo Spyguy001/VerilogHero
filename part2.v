@@ -1,4 +1,5 @@
 // Part 2 skeleton
+//https://pastebin.com/ffrEumCq
 
 module part2
 	(
