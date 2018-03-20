@@ -69,7 +69,8 @@ module part2
     // Put your code here. Your code should produce signals x,y,colour and writeEn/plot
     // for the VGA controller, in addition to any other functionality your design may require.
    
-    wire run, frame, slock;
+    wire run, frame, slock; 
+	 wire flag;
     RateDivider r0 (1'b1, 2'd0, CLOCK_50, resetn, run);
     RateDivider r1 (run, 2'd3, CLOCK_50, resetn, frame);
 	 RateDivider r2 (1'b1, 2'd0, CLOCK_50, resetn, slock);
@@ -99,6 +100,7 @@ module part2
         .draw(draw),
         .out_x(x),
         .out_y(y),
+		  .flag(flag),
         .out_colour(colour)
     );
    control c0(
@@ -115,7 +117,7 @@ module part2
         );
 endmodule
  
-module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x, out_y, out_colour);
+module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x, out_y, out_colour, flag);
     input [6:0] data;
     input [2:0] colour;
     input resetn, clock, ld_x, ld_y, ld_r, ld_e, draw;
@@ -123,6 +125,7 @@ module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x
     output [7:0] out_x;
     output [6:0] out_y;
     output reg [2:0] out_colour;
+	 output reg flag;
    
     reg [7:0] x;
     reg [6:0] y;
@@ -155,15 +158,21 @@ module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x
     always @(posedge clock)
     begin: COUNTER
         // active low
-        if (!resetn)
+        if (!resetn) begin
             count <= 4'b0000;
+				flag <= 0;
+				end
         else if (draw)
             begin
-                if (count == 4'b1111)
+                if (count == 4'b1111) begin
                     count <= 0;
+						  flag <= 1;
+						  end
                 else
                     count <= count + 1'b1;
             end
+		  else if (!draw)
+				flag <= 0;
     end
    
     assign out_x = x + count[1:0];
@@ -261,7 +270,7 @@ module RateDivider(enable, frequency, clock, reset_n, enable_out);
 			2'b00: start = {27'd0, 1'b1};
 			2'b01: start = {2'b00, 26'd2};
 			2'b10: start = {1'b0, 27'd3};
-			2'b11: start = {28'd6};
+			2'b11: start = {28'd15};
 			default: start = {27'd0, 1'b1};
 		endcase
 	end
@@ -354,6 +363,10 @@ module control(clock, resetn, go, ld, ld_x, ld_y, ld_r, ld_e, draw, plot);
 					ld_r = 1'b1;
 					end
 				DRAW: begin
+					draw = 1'b1;
+					plot = 1'b1;
+					end
+				WAIT: begin
 					draw = 1'b1;
 					plot = 1'b1;
 					end
