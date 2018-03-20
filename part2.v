@@ -30,7 +30,7 @@ module part2
     output          VGA_SYNC_N;             //  VGA SYNC
     output  [9:0]   VGA_R;                  //  VGA Red[9:0]
     output  [9:0]   VGA_G;                  //  VGA Green[9:0]
-    output  [9:0]   VGA_B;                  //  VGA Blue[9:0]
+    output  [9:0]   VGA_B;                  //  VGA Blue[9:0]++
    
     wire resetn;
     assign resetn = KEY[0];
@@ -69,23 +69,22 @@ module part2
     // Put your code here. Your code should produce signals x,y,colour and writeEn/plot
     // for the VGA controller, in addition to any other functionality your design may require.
    
-    wire run, frame;
+    wire run, frame, slock;
     RateDivider r0 (1'b1, 2'd0, CLOCK_50, resetn, run);
     RateDivider r1 (run, 2'd3, CLOCK_50, resetn, frame);
+	 RateDivider r2 (1'b1, 2'd0, CLOCK_50, resetn, slock);
    
     reg [6:0] data_in;
-    wire [6:0] outY; wire [7:0] outX;
-    wire directionX, directoutX, directionY, directoutY;
+    wire [6:0] outY, outX;
+    wire directoutX, directoutY;
     XCounter xC(frame, 1'b1, CLOCK_50, resetn, outX, directoutX);
     YCounter yC(frame, 1'b1, CLOCK_50, resetn, outY, directoutY);
    
     always@(*) begin
         if(ld_x)
-            data_in = outX[6:0];
+            data_in = outX;
         else if(ld_y)
             data_in = outY;
-        else
-            data_in = 7'd0;
     end
    
     datapath d0(
@@ -105,7 +104,7 @@ module part2
    control c0(
         .clock(CLOCK_50),
         .resetn(resetn),
-        .ld(run),
+        .ld(slock),
         .go(frame),
         .ld_x(ld_x),
         .ld_y(ld_y),
@@ -173,21 +172,21 @@ endmodule
  
 module XCounter(enable, direction, clock, resetn, x, directout);
     input enable, direction, clock, resetn;
-    output reg [7:0] x; output reg directout;
+    output reg [6:0] x; output reg directout;
    
-    always@(posedge enable) begin
+    always@(posedge clock) begin
         if(resetn == 1'b0) begin
-            x <= 8'd0;
+            x <= 7'd0;
             directout <= 1'b1;
         end
-        else if(clock == 1'b1) begin
-            if(direction == 1'b0 && x != 8'd0)
+        else if(enable == 1'b1) begin
+            if(direction == 1'b0 && x != 7'd0)
                 x <= x - 1'b1;
-            else if(direction == 1'b0 && x == 8'd0)
+            else if(direction == 1'b0 && x == 7'd0)
                 directout <= 1'b1;
-            else if(direction == 1'b1 && x != 8'b11111111)
+            else if(direction == 1'b1 && x != 7'b11111111)
                 x <= x + 1'b1;
-            else if(direction == 1'b1 && x == 8'b11111111)
+            else if(direction == 1'b1 && x == 7'b11111111)
                 directout <= 1'b0;
             else
                 x <= x;
@@ -234,7 +233,7 @@ endmodule
         begin
             if (out == 28'd0)
                 out <= par_load;
-            else
+            else					ld_e = 1'b1;
                 out <= out - 1'b1;
         end
     end
@@ -262,7 +261,7 @@ module RateDivider(enable, frequency, clock, reset_n, enable_out);
 			2'b00: start = {27'd0, 1'b1};
 			2'b01: start = {2'b00, 26'd2};
 			2'b10: start = {1'b0, 27'd3};
-			2'b11: start = {28'd15};
+			2'b11: start = {28'd6};
 			default: start = {27'd0, 1'b1};
 		endcase
 	end
@@ -305,7 +304,7 @@ module control(clock, resetn, go, ld, ld_x, ld_y, ld_r, ld_e, draw, plot);
     input resetn, clock, go, ld;
     output reg ld_x, ld_y, ld_r, ld_e, draw, plot;
  
-    reg [2:0] current_state, next_state;
+    reg [3:0] current_state, next_state;
    
     localparam  IDLE = 4'd0,
                 LOAD_X = 4'd1,
@@ -329,7 +328,7 @@ module control(clock, resetn, go, ld, ld_x, ld_y, ld_r, ld_e, draw, plot);
             LOAD_COLOUR: next_state = ld ? DRAW : LOAD_COLOUR;
             DRAW: next_state = ld ? WAIT : DRAW;
             WAIT: next_state = go ? ERASE : WAIT;
-            ERASE: next_state = ld ? ERASE_WAIT : ERASE;
+				ERASE: next_state = ld ? ERASE_WAIT : ERASE;
             ERASE_WAIT: next_state = ld ? LOAD_X : ERASE_WAIT;
             default: next_state = IDLE;
         endcase
@@ -345,24 +344,24 @@ module control(clock, resetn, go, ld, ld_x, ld_y, ld_r, ld_e, draw, plot);
         plot = 1'b0;
        
         case (current_state)
-            LOAD_X: begin
-                ld_x = 1'b1;
-                end
-            LOAD_Y: begin
-                ld_y = 1'b1;
-                end
-            LOAD_COLOUR : begin
-                ld_r = 1'b1;
-                end
-            DRAW: begin
-                draw = 1'b1;
-                plot = 1'b1;
-            end
-            ERASE: begin
-                ld_e = 1'b1;
-					 draw = 1'b1;
-					 plot = 1'b1;
-            end
+				LOAD_X: begin
+					ld_x = 1'b1;
+					end
+				LOAD_Y: begin
+					ld_y = 1'b1;
+					end
+				LOAD_COLOUR: begin
+					ld_r = 1'b1;
+					end
+				DRAW: begin
+					draw = 1'b1;
+					plot = 1'b1;
+					end
+				ERASE: begin
+					ld_e = 1'b1;
+					draw = 1'b1;
+					plot = 1'b1;
+					end
         endcase
     end
    
