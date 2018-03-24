@@ -6,6 +6,7 @@ module part2
         // Your inputs and outputs here
         KEY,
         SW,
+		  LEDR,
         // The ports below are for the VGA output.  Do not change.
         VGA_CLK,                        //  VGA Clock
         VGA_HS,                         //  VGA H_SYNC
@@ -20,6 +21,7 @@ module part2
     input           CLOCK_50;               //  50 MHz
     input   [9:0]   SW;
     input   [3:0]   KEY;
+	 output [9:0] LEDR;
  
     // Declare your inputs and outputs here
     // Do not change the following outputs
@@ -71,15 +73,15 @@ module part2
    
     wire run, frame, slock; 
 	 wire flag;
-    RateDivider r0 (1'b1, 2'd0, CLOCK_50, resetn, run);
-    RateDivider r1 (run, 2'd3, CLOCK_50, resetn, frame);
-	 RateDivider r2 (1'b1, 2'd0, CLOCK_50, resetn, slock);
+    RateDivider_p2 r0 (1'b1, 2'd0, CLOCK_50, resetn, run);
+    RateDivider_p2 r1 (run, 2'd3, CLOCK_50, resetn, frame);
+	 RateDivider_p2 r2 (1'b1, 2'd0, CLOCK_50, resetn, slock);
    
     reg [6:0] data_in;
     wire [6:0] outY, outX;
     wire directoutX, directoutY;
-    XCounter xC(frame, 1'b1, CLOCK_50, resetn, outX, directoutX);
-    YCounter yC(frame, 1'b1, CLOCK_50, resetn, outY, directoutY);
+    XCounter_p2 xC(frame, 1'b1, CLOCK_50, resetn, outX, directoutX);
+    YCounter_p2 yC(frame, 1'b1, CLOCK_50, resetn, outY, directoutY);
    
     always@(*) begin
         if(ld_x)
@@ -88,7 +90,7 @@ module part2
             data_in = outY;
     end
    
-    datapath d0(
+    datapath_p2 d0(
         .clock(CLOCK_50),
         .resetn(resetn),
         .data(data_in),
@@ -101,9 +103,10 @@ module part2
         .out_x(x),
         .out_y(y),
 		  .flag(flag),
-        .out_colour(colour)
+        .out_colour(colour),
+		  .ledr(LEDR)
     );
-   control c0(
+   control_p2 c0(
         .clock(CLOCK_50),
         .resetn(resetn),
         .ld(slock),
@@ -117,7 +120,7 @@ module part2
         );
 endmodule
  
-module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x, out_y, out_colour, flag);
+module datapath_p2(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x, out_y, out_colour, flag, ledr);
     input [6:0] data;
     input [2:0] colour;
     input resetn, clock, ld_x, ld_y, ld_r, ld_e, draw;
@@ -126,10 +129,30 @@ module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x
     output [6:0] out_y;
     output reg [2:0] out_colour;
 	 output reg flag;
+	 output [9:0] ledr;
    
     reg [7:0] x;
     reg [6:0] y;
     reg [3:0] count;
+	 
+	 wire check_1, check_2, check_3, check_4;
+	 
+	 keyboard_tracker #(.PULSE_OR_HOLD(0)) checker(
+	     .clock(clock),
+		  .reset(resetn),
+		  .PS2_CLK(PS2_CLK),
+		  .PS2_DAT(PS2_DAT),
+		  .w(check_1),
+		  .a(check_2),
+		  .s(check_3),
+		  .d(check_4),
+		  .left(ledr[0]),
+		  .right(ledr[1]),
+		  .up(ledr[2]),
+		  .down(ledr[3]),
+		  .space(ledr[8]),
+		  .enter(ledr[9])
+		  );
    
     always @(posedge clock)
     begin: LOAD
@@ -179,7 +202,7 @@ module datapath(data, colour, resetn, clock, ld_x, ld_y, ld_r, ld_e, draw, out_x
     assign out_y = y + count[3:2];
 endmodule
  
-module XCounter(enable, direction, clock, resetn, x, directout);
+module XCounter_p2(enable, direction, clock, resetn, x, directout);
     input enable, direction, clock, resetn;
     output reg [6:0] x; output reg directout;
    
@@ -203,7 +226,7 @@ module XCounter(enable, direction, clock, resetn, x, directout);
     end
 endmodule
  
-module YCounter(enable, direction, clock, resetn, y, directout);
+module YCounter_p2(enable, direction, clock, resetn, y, directout);
     input enable, direction, clock, resetn;
     output reg [6:0] y; output reg directout;
    
@@ -249,7 +272,7 @@ endmodule
    
     assign q = (out == 28'd0) ? 1 : 0;
 endmodule*/
-module RateDivider(enable, frequency, clock, reset_n, enable_out);
+module RateDivider_p2(enable, frequency, clock, reset_n, enable_out);
 	input enable;
 	input clock;
 	input reset_n;
@@ -309,7 +332,7 @@ module RateDivider(enable, frequency, clock, reset_n, enable_out);
 	
 endmodule
  
-module control(clock, resetn, go, ld, ld_x, ld_y, ld_r, ld_e, draw, plot);
+module control_p2(clock, resetn, go, ld, ld_x, ld_y, ld_r, ld_e, draw, plot);
     input resetn, clock, go, ld;
     output reg ld_x, ld_y, ld_r, ld_e, draw, plot;
  
