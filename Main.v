@@ -43,33 +43,33 @@ module lab7
 	// Create an Instance of a VGA controller - there can be only one!
 	// Define the number of colours as well as the initial background
 	// image file (.MIF) for the controller.
- // vga_adapter VGA(
- // 		.resetn(resetn),
- // 		.clock(CLOCK_50),
- // 		.colour(colour),
- // 		.x(x),
- // 		.y(y),
- // 		.plot(writeEn),
- // 		/* Signals for the DAC to drive the monitor. */
- // 		.VGA_R(VGA_R),
- // 		.VGA_G(VGA_G),
- // 		.VGA_B(VGA_B),
- // 		.VGA_HS(VGA_HS),
- // 		.VGA_VS(VGA_VS),
- // 		.VGA_BLANK(VGA_BLANK_N),
- // 		.VGA_SYNC(VGA_SYNC_N),
- // 		.VGA_CLK(VGA_CLK));
- // 	defparam VGA.RESOLUTION = "160x120";
- // 	defparam VGA.MONOCHROME = "FALSE";
- // 	defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
- // 	defparam VGA.BACKGROUND_IMAGE = "black.mif";
+// vga_adapter VGA(
+// .resetn(resetn),
+// .clock(CLOCK_50),
+// .colour(colour),
+// .x(x),
+// .y(y),
+// .plot(writeEn),
+// /* Signals for the DAC to drive the monitor. */
+// .VGA_R(VGA_R),
+// .VGA_G(VGA_G),
+// .VGA_B(VGA_B),
+// .VGA_HS(VGA_HS),
+// .VGA_VS(VGA_VS),
+// .VGA_BLANK(VGA_BLANK_N),
+// .VGA_SYNC(VGA_SYNC_N),
+// .VGA_CLK(VGA_CLK));
+// defparam VGA.RESOLUTION = "160x120";
+// defparam VGA.MONOCHROME = "FALSE";
+// defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+// defparam VGA.BACKGROUND_IMAGE = "black.mif";
 
 	// Put your code here. Your code should produce signals x,y,colour and writeEn/plot
 	// for the VGA controller, in addition to any other functionality your design may require.
     
-    wire draw, shift, erase, reset_counter, gen_rand, reset_draw, done_wait, done_flag, en_delay; 
-    wire [3:0] state;
-    wire [4:0] select_node;
+    wire draw, shift, erase, reset_counter, gen_rand, reset_draw, done_wait, done_flag, en_delay, enabled; 
+    wire [5:0] state;
+    wire [6:0] select_node;
 	datapath d0(
 		.clock(CLOCK_50),
 		.resetn(resetn),
@@ -86,13 +86,15 @@ module lab7
 		.done_flag    (done_flag),
 		.en_delay     (en_delay),
 		.select_node  (select_node),
-		.shift (shift)
+		.shift (shift),
+		.enabled (enabled)
 	);
    control c0(
 		.clock(CLOCK_50),
 		.resetn(resetn),
 		.go(~KEY[1]),
 		.done_flag    (done_flag),
+		.enabled (enabled),
 		.gen_rand     (gen_rand),
 		.done_wait    (done_wait),
 		.erase        (erase),
@@ -107,15 +109,15 @@ module lab7
 		);
 endmodule
 
-module datapath(clock, resetn, shift, select_node, gen_rand, en_delay, in_colour,  draw, erase, reset_counter, reset_draw, done_wait, out_x, out_y, out_colour, done_flag);
+module datapath(clock, resetn, shift, select_node, gen_rand, en_delay, in_colour,  draw, erase, reset_counter, reset_draw, done_wait, out_x, out_y, out_colour, done_flag, enabled);
 	input [2:0] in_colour;
 	input clock, draw,shift, erase, gen_rand, resetn, en_delay, reset_counter, reset_draw;
-	input [4:0] select_node;
+	input [6:0] select_node;
 	output [7:0] out_x;
 	output [6:0] out_y;
 	output [2:0] out_colour;
 	output done_wait;
-	output done_flag;
+	output done_flag, enabled;
 	wire delay_count;
 	reg [6:0] in_y;
 	wire reset;
@@ -148,7 +150,8 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay, in_colour
 		.done_flag  (done_flag),
 		.out_x      (out_x),
 		.out_y      (out_y),
-		.out_colour (out_colour)
+		.out_colour (out_colour),
+		.enabled	(enabled)
 		);
 	// YCounter y0(
 	// 	.enable(en_count), 
@@ -200,7 +203,7 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay, in_colour
 
 endmodule
 
-module draw_node(enable, out,clock, in_x, in_y, resetn, in_colour, shift,draw, erase, reset_draw, out_x, out_y, out_colour, done_flag);
+module draw_node(enable, out, enabled, clock, in_x, in_y, resetn, in_colour, shift,draw, erase, reset_draw, out_x, out_y, out_colour, done_flag);
 	input [2:0] in_colour;
 	input [6:0] in_y;
 	input [7:0] in_x;
@@ -208,11 +211,14 @@ module draw_node(enable, out,clock, in_x, in_y, resetn, in_colour, shift,draw, e
 	output [7:0] out_x;
 	output [6:0] out_y;
 	output [2:0] out_colour;
+	output enabled;
 	output reg done_flag;
 	output reg out;
 
 	reg i_draw;
 	wire i_done;
+
+	assign enabled = enable;
 	always @(posedge clock) 
     begin
     	if(!resetn) begin
@@ -258,19 +264,20 @@ module draw_node(enable, out,clock, in_x, in_y, resetn, in_colour, shift,draw, e
 	);
 endmodule
 
-module draw_select (clock, resetn, shift, draw, erase, gen_rand, reset_draw, select_node, done_flag, out_x, out_y, out_colour);
+module draw_select (clock, resetn, shift, draw, erase, gen_rand, reset_draw, select_node, done_flag, out_x, out_y, out_colour, enabled);
 	input clock, resetn, draw, shift, erase, reset_draw, gen_rand;
 	output reg [7:0] out_x;
 	output reg [6:0] out_y;
 	output reg [2:0] out_colour;
-	input [4:0] select_node;
-	output reg done_flag;
-	wire done1, done2, done3;
-	wire out1, out2, out3;
-	wire [7:0] x1, x2, x3;
-	wire [6:0] y1, y2, y3;
-	wire [2:0] c1, c2, c3;
-	reg draw1, draw2, draw3;
+	input [6:0] select_node;
+	output reg done_flag, enabled;
+	wire done11, done12, done13, done14, done15, done16, done17, done18;
+	wire out11, out12, out13, out14, out15,out16,out17,out18;
+	wire [7:0] x11, x12, x13, x14,x15,x16,x17,x18;
+	wire [6:0] y11, y12, y13, y14,y15,y16,y17,y18;
+	wire [2:0] c11, c12, c13, c14,c15,c16,c17,c18;
+	reg draw11, draw12, draw13, draw14, draw15, draw16, draw17, draw18;
+	wire e11, e12, e13, e14, e15, e16, e17, e18;
 
 	wire [4:0] random_n;
 
@@ -281,98 +288,291 @@ module draw_select (clock, resetn, shift, draw, erase, gen_rand, reset_draw, sel
 		.out   (random_n)
 		);
 
-	draw_node d0 (
+	draw_node d11 (
 		.enable    (random_n[4]),
-		.out       (out1),
+		.out       (out11),
+		.enabled   (e11),
 		.clock     (clock),
-		.in_x      (8'b00000000),
-		.in_y      (7'b000000),
+		.in_x      (8'b00000001),
+		.in_y      (7'd1),
 		.in_colour (3'b001),
 		.resetn    (resetn),
 		.shift     (shift),
-		.draw      (draw1),
+		.draw      (draw11),
 		.erase     (erase),
 		.reset_draw(reset_draw),
-		.out_x     (x1),
-		.out_y     (y1),
-		.out_colour(c1),
-		.done_flag (done1)
+		.out_x     (x11),
+		.out_y     (y11),
+		.out_colour(c11),
+		.done_flag (done11)
 		);
 
-	draw_node d1 (
-		.enable    (out1),
-		.out       (out2),
+	draw_node d12 (
+		.enable    (out11),
+		.out       (out12),
+		.enabled   (e12),
 		.clock     (clock),
-		.in_x      (8'b00000000),
-		.in_y      (7'b0000111),
-		.in_colour (3'b010),
+		.in_x      (8'b00000001),
+		.in_y      (7'd6),
+		.in_colour (3'b001),
 		.resetn    (resetn),
 		.shift     (shift),
-		.draw      (draw2),
+		.draw      (draw12),
 		.erase     (erase),
 		.reset_draw(reset_draw),
-		.out_x     (x2),
-		.out_y     (y2),
-		.out_colour(c2),
-		.done_flag (done2)
+		.out_x     (x12),
+		.out_y     (y12),
+		.out_colour(c12),
+		.done_flag (done12)
 		);
 
-	draw_node d2 (
-		.enable    (out2),
-		.out       (out3),
+	draw_node d13 (
+		.enable    (out12),
+		.out       (out13),
+		.enabled   (e13),
 		.clock     (clock),
-		.in_x      (8'b00000000),
-		.in_y      (7'b0011111),
-		.in_colour (3'b100),
+		.in_x      (8'b00000001),
+		.in_y      (7'd11),
+		.in_colour (3'b001),
 		.resetn    (resetn),
 		.shift     (shift),
-		.draw      (draw3),
+		.draw      (draw13),
 		.erase     (erase),
 		.reset_draw(reset_draw),
-		.out_x     (x3),
-		.out_y     (y3),
-		.out_colour(c3),
-		.done_flag (done3)
+		.out_x     (x13),
+		.out_y     (y13),
+		.out_colour(c13),
+		.done_flag (done13)
 		);
 
+	draw_node d14 (
+		.enable    (out13),
+		.out       (out14),
+		.enabled   (e14),
+		.clock     (clock),
+		.in_x      (8'b00000001),
+		.in_y      (7'd16),
+		.in_colour (3'b001),
+		.resetn    (resetn),
+		.shift     (shift),
+		.draw      (draw14),
+		.erase     (erase),
+		.reset_draw(reset_draw),
+		.out_x     (x14),
+		.out_y     (y14),
+		.out_colour(c14),
+		.done_flag (done14)
+		);
+
+	draw_node d15 (
+		.enable    (out14),
+		.out       (out15),
+		.enabled   (e15),
+		.clock     (clock),
+		.in_x      (8'b00000001),
+		.in_y      (7'd21),
+		.in_colour (3'b001),
+		.resetn    (resetn),
+		.shift     (shift),
+		.draw      (draw15),
+		.erase     (erase),
+		.reset_draw(reset_draw),
+		.out_x     (x15),
+		.out_y     (y15),
+		.out_colour(c15),
+		.done_flag (done15)
+		);
+	draw_node d16 (
+		.enable    (out15),
+		.out       (out16),
+		.enabled   (e16),
+		.clock     (clock),
+		.in_x      (8'b00000001),
+		.in_y      (7'd26),
+		.in_colour (3'b001),
+		.resetn    (resetn),
+		.shift     (shift),
+		.draw      (draw16),
+		.erase     (erase),
+		.reset_draw(reset_draw),
+		.out_x     (x16),
+		.out_y     (y16),
+		.out_colour(c16),
+		.done_flag (done16)
+		);
+	draw_node d17 (
+		.enable    (out16),
+		.out       (out17),
+		.enabled   (e17),
+		.clock     (clock),
+		.in_x      (8'b00000001),
+		.in_y      (7'd31),
+		.in_colour (3'b001),
+		.resetn    (resetn),
+		.shift     (shift),
+		.draw      (draw17),
+		.erase     (erase),
+		.reset_draw(reset_draw),
+		.out_x     (x17),
+		.out_y     (y17),
+		.out_colour(c17),
+		.done_flag (done17)
+		);
+	draw_node d18 (
+		.enable    (out17),
+		.out       (out18),
+		.enabled   (e18),
+		.clock     (clock),
+		.in_x      (8'b00000001),
+		.in_y      (7'd36),
+		.in_colour (3'b001),
+		.resetn    (resetn),
+		.shift     (shift),
+		.draw      (draw18),
+		.erase     (erase),
+		.reset_draw(reset_draw),
+		.out_x     (x18),
+		.out_y     (y18),
+		.out_colour(c18),
+		.done_flag (done18)
+		);
 	always @(*) 
     begin
     	case (select_node)
-    		5'b00000: begin
-    			out_y = y1;
-    			out_x = x1;
-    			out_colour = c1;
-    			done_flag = done1;
-    			draw1 = draw;
-    			draw2 = 1'b0;
-    			draw3 = 1'b0;
+    		7'd0: begin
+    			out_y = y11;
+    			out_x = x11;
+    			out_colour = c11;
+    			done_flag = done11;
+    			draw11 = draw;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = e11;
     		end 
- 		   	5'b00001: begin
- 		   		out_y = y2;
-    			out_x = x2;
-    			out_colour = c2;
-    			done_flag = done2;
-    			draw1 = 1'b0;
-    			draw2 = draw;
-    			draw3 = 1'b0;
+ 		   	7'd1: begin
+ 		   		out_y = y12;
+    			out_x = x12;
+    			out_colour = c12;
+    			done_flag = done12;
+    			draw11 = 1'b0;
+    			draw12 = draw;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = e12;
  		   	end
- 		   	5'b00010: begin
- 		   		out_y = y3;
-    			out_x = x3;
-    			out_colour = c3;
-    			done_flag = done3;
-    			draw1 = 1'b0;
-    			draw2 = 1'b0;
-    			draw3 = draw;
+ 		   	7'd2: begin
+ 		   		out_y = y13;
+    			out_x = x13;
+    			out_colour = c13;
+    			done_flag = done13;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = draw;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = e13;
+ 		   	end
+ 		   	7'd3: begin
+ 		   		out_y = y14;
+    			out_x = x14;
+    			out_colour = c14;
+    			done_flag = done14;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = draw;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = e14;
+ 		   	end
+ 		   	7'd4: begin
+ 		   		out_y = y15;
+    			out_x = x15;
+    			out_colour = c15;
+    			done_flag = done15;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = draw;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = e15;
+ 		   	end
+ 		   	7'd5: begin
+ 		   		out_y = y16;
+    			out_x = x16;
+    			out_colour = c16;
+    			done_flag = done16;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = draw;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = e16;
+ 		   	end
+ 		   	7'd6: begin
+ 		   		out_y = y17;
+    			out_x = x17;
+    			out_colour = c17;
+    			done_flag = done17;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = draw;
+    			draw18 = 1'b0;
+    			enabled = e17;
+ 		   	end
+ 		   	7'd7: begin
+ 		   		out_y = y18;
+    			out_x = x18;
+    			out_colour = c18;
+    			done_flag = done18;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = draw;
+    			enabled = e18;
  		   	end
     		default: begin
     			out_y = 7'b0000000;
     			out_x = 8'b00000000;
     			out_colour = 3'b000;
     			done_flag = 1'b0;
-    			draw1 = 1'b0;
-    			draw2 = 1'b0;
-    			draw3 = 1'b0;
+    			draw11 = 1'b0;
+    			draw12 = 1'b0;
+    			draw13 = 1'b0;
+    			draw14 = 1'b0;
+    			draw15 = 1'b0;
+    			draw16 = 1'b0;
+    			draw17 = 1'b0;
+    			draw18 = 1'b0;
+    			enabled = 1'b0;
     		end
     	endcase
     end
@@ -531,28 +731,51 @@ module YCounter(enable, clock, resetn, out);
 	end
 endmodule
 
-module control(clock, resetn, go, done_flag, done_wait, erase, reset_counter, reset_draw, shift,draw, plot, state, en_delay, select_node, gen_rand);
-	input resetn, clock, go, done_flag, done_wait; 
+module control(clock, resetn, go, done_flag, done_wait, enabled, erase, reset_counter, reset_draw, shift,draw, plot, state, en_delay, select_node, gen_rand);
+	input resetn, clock, go, done_flag, done_wait, enabled; 
 	output reg reset_counter, reset_draw, erase, draw, plot, shift, en_delay, gen_rand;
-	output [3:0] state;
-	output reg [4:0] select_node;
-	reg [3:0] current_state, next_state;
+	output [5:0] state;
+	output reg [6:0] select_node;
+	reg [5:0] current_state, next_state;
 	assign state = current_state;
-	localparam  IDLE = 4'd0,
-				DRAW = 4'd1,
-				DRAW_WAIT = 4'd2,
-				DRAW1 = 4'd3,
-				DRAW_WAIT1 = 4'd4,
-				DRAW2 = 4'd5,
-				WAIT= 4'd6,
-				WAIT_FINISH = 4'd7,
-				ERASE= 4'd8,
-				ERASE_WAIT = 4'd9,
-				ERASE1= 4'd10, // a
-				ERASE_WAIT1 = 4'd11, // b
-				ERASE2= 4'd12, // c
-				UPDATE = 4'd13, // d 
-				GENERATE = 4'd14; // e
+	localparam  IDLE = 6'd0,
+				DRAW_WAIT0 = 6'd1,
+				DRAW = 6'd2,
+				DRAW_WAIT1 = 6'd3,
+				DRAW1 = 6'd4,
+				DRAW_WAIT2 = 6'd5,
+				DRAW2 = 6'd6,
+				DRAW_WAIT3 = 6'd7,
+				DRAW3 = 6'd8,
+				DRAW_WAIT4 = 6'd9,
+				DRAW4 = 6'd10,
+				DRAW_WAIT5 = 6'd11,
+				DRAW5 = 6'd12,
+				DRAW_WAIT6 = 6'd13,
+				DRAW6 = 6'd14,
+				DRAW_WAIT7 = 6'd15,
+				DRAW7 = 6'd16,
+				WAIT= 6'd17,
+				WAIT_FINISH = 6'd18,
+				ERASE= 6'd19,
+				ERASE_WAIT = 6'd20,
+				ERASE1= 6'd21, 
+				ERASE_WAIT1 = 6'd22, 
+				ERASE2= 6'd23,
+				ERASE_WAIT2 = 6'd24, 
+				ERASE3= 6'd25,
+				ERASE_WAIT3 = 6'd26, 
+				ERASE4= 6'd27,
+				ERASE_WAIT4 = 6'd28, 
+				ERASE5= 6'd29,
+				ERASE_WAIT5 = 6'd30, 
+				ERASE6= 6'd31,
+				ERASE_WAIT6 = 6'd32, 
+				ERASE7= 6'd33,
+				ERASE_WAIT7 = 6'd34, 
+				UPDATE = 6'd35, 
+				GENERATE = 6'd36;
+				
 				
 
 	// wire [4:0] random_n;
@@ -567,20 +790,42 @@ module control(clock, resetn, go, done_flag, done_wait, erase, reset_counter, re
 	begin: state_table
 		case (current_state)
 			IDLE: next_state = go ? GENERATE : IDLE;
-			DRAW: next_state = done_flag ? DRAW_WAIT : DRAW;
-			DRAW_WAIT: next_state = DRAW1;
-			DRAW1: next_state = done_flag ? DRAW_WAIT1 : DRAW1;
-			DRAW_WAIT1: next_state = DRAW2;
-			DRAW2: next_state = done_flag ? WAIT : DRAW2;
+			DRAW_WAIT0: next_state = enabled ? DRAW : DRAW_WAIT1;
+			DRAW: next_state = done_flag ? DRAW_WAIT1 : DRAW;
+			DRAW_WAIT1: next_state = enabled ? DRAW1 : DRAW_WAIT2;
+			DRAW1: next_state = done_flag ? DRAW_WAIT2 : DRAW1;
+			DRAW_WAIT2: next_state = enabled ? DRAW2 : DRAW_WAIT3;
+			DRAW2: next_state = done_flag ? DRAW_WAIT3 : DRAW2;
+			DRAW_WAIT3: next_state = enabled ? DRAW3 : DRAW_WAIT4;
+			DRAW3: next_state = done_flag ? DRAW_WAIT4 : DRAW3;
+			DRAW_WAIT4: next_state = enabled ? DRAW4 : DRAW_WAIT5;
+			DRAW4: next_state = done_flag ? DRAW_WAIT5 : DRAW4;
+			DRAW_WAIT5: next_state = enabled ? DRAW5 : DRAW_WAIT6;
+			DRAW5: next_state = done_flag ? DRAW_WAIT6 : DRAW5;
+			DRAW_WAIT6: next_state = enabled ? DRAW6 : DRAW_WAIT7;
+			DRAW6: next_state = done_flag ? DRAW_WAIT7 : DRAW6;
+			DRAW_WAIT7: next_state = enabled ? DRAW7 : WAIT;
+			DRAW7: next_state = done_flag ? WAIT : DRAW7;
 			WAIT: next_state = WAIT_FINISH;
 			WAIT_FINISH: next_state =  done_wait ? ERASE : WAIT_FINISH;
 			ERASE: next_state = done_flag ? ERASE_WAIT : ERASE;
 			ERASE_WAIT: next_state = ERASE1;
 			ERASE1: next_state = done_flag ? ERASE_WAIT1 : ERASE1;
 			ERASE_WAIT1: next_state = ERASE2;
-			ERASE2: next_state = done_flag ? UPDATE : ERASE2;
+			ERASE2: next_state = done_flag ? ERASE_WAIT2 : ERASE2;
+			ERASE_WAIT2: next_state = ERASE3;
+			ERASE3: next_state = done_flag ? ERASE_WAIT3 : ERASE3;
+			ERASE_WAIT3: next_state = ERASE4;
+			ERASE4: next_state = done_flag ? ERASE_WAIT4 : ERASE4;
+			ERASE_WAIT4: next_state = ERASE5;
+			ERASE5: next_state = done_flag ? ERASE_WAIT5 : ERASE5;
+			ERASE_WAIT5: next_state = ERASE6;
+			ERASE6: next_state = done_flag ? ERASE_WAIT6 : ERASE6;
+			ERASE_WAIT6: next_state = ERASE7;
+			ERASE7: next_state = done_flag ? ERASE_WAIT7 : ERASE7;
+			ERASE_WAIT7: next_state = UPDATE;
 			UPDATE: next_state = GENERATE;
-			GENERATE: next_state = DRAW;
+			GENERATE: next_state = DRAW_WAIT0;
 			default: next_state = IDLE;
 		endcase
 	end
@@ -594,30 +839,81 @@ module control(clock, resetn, go, done_flag, done_wait, erase, reset_counter, re
 		en_delay = 1'b0;
 		draw = 1'b0;
 		plot = 1'b0;
-		select_node = 5'b11111;
+		select_node = 7'b11111;
 		gen_rand = 1'b0;
 		
 		case (current_state)
+			DRAW_WAIT0: begin
+				reset_draw = 1'b0;
+				select_node = 7'd0;
+			end
 			DRAW: begin
 				draw = 1'b1;
 				plot = 1'b1;
-				select_node = 5'd0;
+				select_node = 7'd0;
 			end
-			DRAW_WAIT: begin
+			DRAW_WAIT1: begin
 				reset_draw = 1'b0;
+				select_node = 7'd1;
 			end
 			DRAW1: begin
 				draw = 1'b1;
 				plot = 1'b1;
-				select_node = 5'd1;
+				select_node = 7'd1;
 			end
-			DRAW_WAIT1: begin
+			DRAW_WAIT2: begin
 				reset_draw = 1'b0;
+				select_node = 7'd2;
 			end
 			DRAW2: begin
 				draw = 1'b1;
-				// plot = 1'b1;
-				select_node = 5'd2;
+				plot = 1'b1;
+				select_node = 7'd2;
+			end
+			DRAW_WAIT3: begin
+				reset_draw = 1'b0;
+				select_node = 7'd3;
+			end
+			DRAW3: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				select_node = 7'd3;
+			end
+			DRAW_WAIT4: begin
+				reset_draw = 1'b0;
+				select_node = 7'd4;
+			end
+			DRAW4: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				select_node = 7'd4;
+			end
+			DRAW_WAIT5: begin
+				reset_draw = 1'b0;
+				select_node = 7'd5;
+			end
+			DRAW5: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				select_node = 7'd5;
+			end
+			DRAW_WAIT6: begin
+				reset_draw = 1'b0;
+				select_node = 7'd6;
+			end
+			DRAW6: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				select_node = 7'd6;
+			end
+			DRAW_WAIT7: begin
+				reset_draw = 1'b0;
+				select_node = 7'd7;
+			end
+			DRAW7: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				select_node = 7'd7;
 			end
 			WAIT: begin
 				reset_counter = 1'b0;
@@ -632,7 +928,7 @@ module control(clock, resetn, go, done_flag, done_wait, erase, reset_counter, re
 				draw = 1'b1;
 				plot = 1'b1;
 				erase = 1'b1;
-				select_node = 5'd0;
+				select_node = 7'd0;
 				end
 			ERASE_WAIT: begin
 				reset_draw = 1'b0;
@@ -641,7 +937,7 @@ module control(clock, resetn, go, done_flag, done_wait, erase, reset_counter, re
 				draw = 1'b1;
 				plot = 1'b1;
 				erase = 1'b1;
-				select_node = 5'd1;
+				select_node = 7'd1;
 				end
 			ERASE_WAIT1: begin
 				reset_draw = 1'b0;
@@ -650,8 +946,56 @@ module control(clock, resetn, go, done_flag, done_wait, erase, reset_counter, re
 				draw = 1'b1;
 				plot = 1'b1;
 				erase = 1'b1;
-				select_node = 5'd2;
+				select_node = 7'd2;
 				end
+			ERASE_WAIT2: begin
+				reset_draw = 1'b0;
+			end
+			ERASE3: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				erase = 1'b1;
+				select_node = 7'd3;
+				end
+			ERASE_WAIT3: begin
+				reset_draw = 1'b0;
+			end
+			ERASE4: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				erase = 1'b1;
+				select_node = 7'd4;
+				end
+			ERASE_WAIT4: begin
+				reset_draw = 1'b0;
+			end
+			ERASE5: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				erase = 1'b1;
+				select_node = 7'd5;
+				end
+			ERASE_WAIT5: begin
+				reset_draw = 1'b0;
+			end
+			ERASE6: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				erase = 1'b1;
+				select_node = 7'd6;
+				end
+			ERASE_WAIT6: begin
+				reset_draw = 1'b0;
+			end
+			ERASE7: begin
+				draw = 1'b1;
+				plot = 1'b1;
+				erase = 1'b1;
+				select_node = 7'd7;
+				end
+			ERASE_WAIT7: begin
+				reset_draw = 1'b0;
+			end
 			UPDATE: begin
 				shift = 1'b1;
 				reset_draw = 1'b0;
