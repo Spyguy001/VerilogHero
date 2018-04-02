@@ -150,6 +150,23 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 	assign ledr[6] = check_2 && c2;
 	assign ledr[7] = check_3 && c3;
 	assign ledr[8] = check_4 && c4;
+	
+	
+	wire finished;
+	wire [7:0] life;
+	wire [27:0] score;
+	wire life_down =  (check_1 ^ c1) ||
+							(check_2 ^ c2) ||
+							(check_3 ^ c3) ||
+							(check_4 ^ c4);
+	
+	LifeCounter l0(
+		.enable(life_down),
+		.clock(clock),
+		.resetn(reset),
+		.life(life),
+		.out(finished));
+	
 	 
 	 keyboard_tracker #(.PULSE_OR_HOLD(0)) checker(
 	      .clock(clock),
@@ -171,9 +188,10 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 	reg [5:0] frame_limit;
 	wire seconds_count, change_speed;
 	SecondsCounter sec0(
-		.enable(1'b1),
+		.enable(!finished),
 		.clock(clock),
 		.resetn(reset),
+		.counter(score),
 		.out(seconds_count));
 	SpeedCounter sp0(
 		.enable(seconds_count),
@@ -182,7 +200,7 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 		.out(change_speed));
 		
 	always@(*) begin
-		if(reset)
+		if(!reset)
 			frame_limit <= 6'd32;
 		else begin
 			if (change_speed && frame_limit == 6'd32)
@@ -2384,12 +2402,37 @@ module SpeedCounter(enable, clock, resetn, out);
 	assign out = (counter == 28'd0) ? 1 : 0;
 endmodule
 
-module SecondsCounter(enable, clock, resetn, out);
+
+
+module LifeCounter(enable, clock, resetn, life, out);
 	input enable, clock, resetn;
 	output out;
+	output reg [7:0] life;
+	
+	reg [7:0] delay = 8'b11111111;
+	
+	always@(posedge clock)
+	begin
+		if (resetn == 1'b0)
+			life <= delay;
+		else if (enable == 1'b1)
+		begin
+			if (life == 8'd0)
+				life <= delay;
+			else
+				life <= life - 1'b1;
+		end
+	end
+	
+	assign out = (life == 8'd0) ? 1 : 0;
+endmodule
+
+module SecondsCounter(enable, clock, resetn, counter, out);
+	input enable, clock, resetn;
+	output out;
+	output reg [27:0] counter;
 	
 	reg [27:0] delay = 28'd50000000;
-	reg [27:0] counter;
 	
 	always@(posedge clock)
 	begin
