@@ -138,34 +138,37 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 	// wire random_draw;
 	// wire interal_done;
 	
-	wire check_1, check_2, check_3, check_4;
+	wire check_1, check_2, check_3, check_4, check_5, check_6, check_7, check_8;
 	wire c1, c2, c3, c4;
-	wire waste1, waste2, waste3, waste4;
+	wire waste1, waste2, waste3, waste4, waste5, waste6, waste7, waste8;
 	
-	assign ledr[1] = check_1;
-	assign ledr[2] = check_2;
-	assign ledr[3] = check_3;
-	assign ledr[4] = check_4;
-	assign ledr[5] = check_1 && c1;
-	assign ledr[6] = check_2 && c2;
-	assign ledr[7] = check_3 && c3;
-	assign ledr[8] = check_4 && c4;
-	
-	
-	wire finished;
-	wire [7:0] life;
+	wire finished_p1;
+	wire finished_p2;
+	wire [7:0] life_p1;
+	wire [7:0] life_p2;
 	wire [27:0] score;
-	wire life_down =  (check_1 ^ c1) ||
+	wire life_down_p1 =  (check_1 ^ c1) ||
+							(check_2 ^ c2) ||
+							(check_3 ^ c3) ||
+							(check_4 ^ c4);
+	wire life_down_p2 =  (check_1 ^ c1) ||
 							(check_2 ^ c2) ||
 							(check_3 ^ c3) ||
 							(check_4 ^ c4);
 	
 	LifeCounter l0(
-		.enable(life_down),
+		.enable(life_down_p1),
 		.clock(clock),
 		.resetn(reset),
-		.life(life),
-		.out(finished));
+		.life(life_p1),
+		.out(finished_p1));
+		
+	LifeCounter l1(
+		.enable(life_down_p2),
+		.clock(clock),
+		.resetn(reset),
+		.life(life_p2),
+		.out(finished_p2));
 	
 	 
 	 keyboard_tracker #(.PULSE_OR_HOLD(0)) checker(
@@ -177,11 +180,11 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 	 	  .a(check_2),
 	 	  .s(check_3),
 		  .d(check_4),
-	 	  .left(waste1),
-	 	  .right(waste2),
-	 	  .up(waste3),
+	 	  .left(check_5),
+	 	  .right(check_6),
+	 	  .up(check_7),
 	 	  .down(ledr[0]),
-	 	  .space(waste4),
+	 	  .space(check_8),
 	 	  .enter(ledr[9])
 	 	  );
 		  

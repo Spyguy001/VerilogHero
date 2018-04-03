@@ -146,10 +146,10 @@ module keyboard_tracker #(parameter PULSE_OR_HOLD = 0) (
 					I_CODE = 8'h43,
 					O_CODE = 8'h44,
 					P_CODE = 8'h4d,
-					LEFT_CODE  = 8'h6b,
-					RIGHT_CODE = 8'h74,
-					UP_CODE    = 8'h75,
-					DOWN_CODE  = 8'h72,
+					LEFT_CODE  = 8'h15,
+					RIGHT_CODE = 8'h1d,
+					UP_CODE    = 8'h24,
+					DOWN_CODE  = 8'h2d,
 					SPACE_CODE = 8'h29,
 					ENTER_CODE = 8'h5a;
 					
