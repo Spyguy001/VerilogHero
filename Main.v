@@ -1,5 +1,4 @@
-
-module lab7
+module Main
 	(
 		CLOCK_50,						//	On Board 50 MHz
 		// Your inputs and outputs here
@@ -8,6 +7,7 @@ module lab7
 		  PS2_DAT,
 		  PS2_CLK,
 		  LEDR,
+		   HEX0, HEX1, HEX2, HEX3, HEX4, HEX5,
 		// The ports below are for the VGA output.  Do not change.
 		VGA_CLK,   						//	VGA Clock
 		VGA_HS,							//	VGA H_SYNC
@@ -35,7 +35,8 @@ module lab7
 	output	[9:0]	VGA_R;   				//	VGA Red[9:0]
 	output	[9:0]	VGA_G;	 				//	VGA Green[9:0]
 	output	[9:0]	VGA_B;   				//	VGA Blue[9:0]
-	
+		output [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5;
+
 	wire resetn;
 	assign resetn = KEY[0];
 	
@@ -48,26 +49,26 @@ module lab7
 	// Create an Instance of a VGA controller - there can be only one!
 	// Define the number of colours as well as the initial background
 	// image file (.MIF) for the controller.
- // vga_adapter VGA(
- // .resetn(resetn),
- // .clock(CLOCK_50),
- // .colour(colour),
- // .x(x),
- // .y(y),
- // .plot(writeEn),
- // /* Signals for the DAC to drive the monitor. */
- // .VGA_R(VGA_R),
- // .VGA_G(VGA_G),
- // .VGA_B(VGA_B),
- // .VGA_HS(VGA_HS),
- // .VGA_VS(VGA_VS),
- // .VGA_BLANK(VGA_BLANK_N),
- // .VGA_SYNC(VGA_SYNC_N),
- // .VGA_CLK(VGA_CLK));
- // defparam VGA.RESOLUTION = "160x120";
- // defparam VGA.MONOCHROME = "FALSE";
- // defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
- // defparam VGA.BACKGROUND_IMAGE = "black.mif";
+ vga_adapter VGA(
+ .resetn(resetn),
+ .clock(CLOCK_50),
+ .colour(colour),
+ .x(x),
+ .y(y),
+ .plot(writeEn),
+ /* Signals for the DAC to drive the monitor. */
+ .VGA_R(VGA_R),
+ .VGA_G(VGA_G),
+ .VGA_B(VGA_B),
+ .VGA_HS(VGA_HS),
+ .VGA_VS(VGA_VS),
+ .VGA_BLANK(VGA_BLANK_N),
+ .VGA_SYNC(VGA_SYNC_N),
+ .VGA_CLK(VGA_CLK));
+ defparam VGA.RESOLUTION = "160x120";
+ defparam VGA.MONOCHROME = "FALSE";
+ defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+ defparam VGA.BACKGROUND_IMAGE = "black.mif";
 
 	// Put your code here. Your code should produce signals x,y,colour and writeEn/plot
 	// for the VGA controller, in addition to any other functionality your design may require.
@@ -95,6 +96,13 @@ module lab7
 		.enabled (enabled),
 		.PS2_CLK(PS2_CLK),
 		.PS2_DAT(PS2_DAT),
+		.HEX0 (HEX0),
+		.HEX1 (HEX1),
+		.HEX2 (HEX2),
+		.HEX3 (HEX3),
+		.HEX4 (HEX4),
+		.HEX5 (HEX5),
+		.SW (SW),
 		.ledr(LEDR)
 	);
    control c0(
@@ -120,10 +128,11 @@ endmodule
 module datapath(clock, resetn, shift, select_node, gen_rand, en_delay, 
 					in_colour,  draw, erase, reset_counter, reset_draw, 
 					done_wait, out_x, out_y, out_colour, done_flag, enabled,
-					PS2_CLK, PS2_DAT, ledr);
+					PS2_CLK, PS2_DAT, ledr, HEX0, HEX1, HEX2, HEX3, HEX4, HEX5, SW);
 	input [2:0] in_colour;
 	input clock, draw,shift, erase, gen_rand, resetn, en_delay, reset_counter, reset_draw;
 	input [6:0] select_node;
+	input [9:0] SW;
 	inout PS2_CLK, PS2_DAT;
 	output [7:0] out_x;
 	output [6:0] out_y;
@@ -132,41 +141,34 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 	output done_flag, enabled;
 	output [9:0] ledr;
 	wire delay_count;
+	output [6:0] HEX0, HEX1, HEX2, HEX3, HEX4, HEX5;
 	reg [6:0] in_y;
 	wire reset;
 	// wire [4:0]random_n;
 	// wire random_draw;
 	// wire interal_done;
 	
-	wire check_1, check_2, check_3, check_4;
+	wire check_1, check_2, check_3, check_4, check_5, check_6, check_7, check_8;
 	wire c1, c2, c3, c4;
-	wire waste1, waste2, waste3, waste4;
+	wire waste1, waste2, waste3, waste4, waste5, waste6, waste7, waste8;
 	
-	assign ledr[1] = check_1;
-	assign ledr[2] = check_2;
-	assign ledr[3] = check_3;
-	assign ledr[4] = check_4;
-	assign ledr[5] = check_1 && c1;
-	assign ledr[6] = check_2 && c2;
-	assign ledr[7] = check_3 && c3;
-	assign ledr[8] = check_4 && c4;
-	 
-	// keyboard_tracker #(.PULSE_OR_HOLD(0)) checker(
-	//      .clock(clock),
-	// 	  .reset(resetn),
-	// 	  .PS2_CLK(PS2_CLK),
-	// 	  .PS2_DAT(PS2_DAT),
-	// 	  .w(check_1),
-	// 	  .a(check_2),
-	// 	  .s(check_3),
-	// 	  .d(check_4),
-	// 	  .left(waste1),
-	// 	  .right(waste2),
-	// 	  .up(waste3),
-	// 	  .down(ledr[0]),
-	// 	  .space(waste4),
-	// 	  .enter(ledr[9])
-	// 	  );
+	wire finished_p1;
+	wire finished_p2;
+	wire [7:0] life_p1;
+	wire [7:0] life_p2;
+	wire [27:0] score;
+	wire life_down_p1 =  (check_1 ^ c1) ||
+							(check_2 ^ c2) ||
+							(check_3 ^ c3) ||
+							(check_4 ^ c4);
+	wire life_down_p2 =  (check_5 ^ c1) ||
+							(check_6 ^ c2) ||
+							(check_7 ^ c3) ||
+							(check_8 ^ c4);
+	
+//	reg [5:0] frame_limit;
+	
+	
 	
 	assign reset = reset_counter & resetn;
 	DelayCounter d0(
@@ -179,8 +181,72 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 		.enable(delay_count), 
 		.clock(clock), 
 		.resetn(reset),
-
+		.frame_limit(SW[5:0]),
 		.out(done_wait));
+		
+		wire seconds_count, change_speed;
+	SecondsCounter sec0(
+		.enable(1'b1),
+		.clock(clock),
+		.resetn(resetn),
+		.out(seconds_count));
+		
+	LifeCounter l0(
+		.enable(life_down_p1),
+		.clock(seconds_count),
+		.resetn(resetn),
+		.life(life_p1),
+		.out(finished_p1));
+		
+	LifeCounter l1(
+		.enable(life_down_p2),
+		.clock(seconds_count),
+		.resetn(resetn),
+		.life(life_p2),
+		.out(finished_p2));
+	
+	sev s0 (HEX0, life_p1[3:0]);
+	sev s1 (HEX1, life_p1[7:4]);
+	sev s2 (HEX2, life_p2[3:0]);
+	sev s3 (HEX3, life_p2[7:4]);
+	
+	 
+	 keyboard_tracker #(.PULSE_OR_HOLD(0)) checker(
+	      .clock(clock),
+	 	  .reset(resetn),
+	 	  .PS2_CLK(PS2_CLK),
+	 	  .PS2_DAT(PS2_DAT),
+	 	  .w(check_1),
+	 	  .a(check_2),
+	 	  .s(check_3),
+		  .d(check_4),
+	 	  .left(check_5),
+	 	  .right(check_6),
+	 	  .up(check_7),
+	 	  .down(waste1),
+	 	  .space(check_8),
+	 	  .enter(waste2)
+	 	  );
+		  
+	
+	
+//	SpeedCounter sp0(
+//		.enable(seconds_count),
+//		.clock(clock),
+//		.resetn(resetn),
+//		.out(change_speed));
+		
+//	always@(*) begin
+//		if(!reset)
+//			frame_limit <= 6'd50;
+//		else begin
+//			if (seconds_count && frame_limit != 6'd5)
+//				frame_limit <= frame_limit - 1'b1;
+//			else0
+//				frame_limit <= frame_limit;
+//		end
+//	end
+	
 
 	draw_select dr0(
 		.clock      (clock),
@@ -201,6 +267,19 @@ module datapath(clock, resetn, shift, select_node, gen_rand, en_delay,
 		.out_c3 (c3),
 		.out_c4 (c4)
 		);
+		
+	
+	assign ledr[0] = check_1 && c1;
+	assign ledr[1] = check_2 && c2;
+	assign ledr[2] = check_3 && c3;
+	assign ledr[3] = check_4 && c4;
+	assign ledr[4] = check_5 && c1;
+	assign ledr[5] = check_6 && c2;
+	assign ledr[6] = check_7 && c3;
+	assign ledr[7] = check_8 && c4;
+	assign ledr[8] = seconds_count;
+	assign ledr[9] = change_speed;
+	
 endmodule
 
 module draw_node(enable, out, enabled, clock, in_x, in_y, resetn, in_colour, shift,draw, erase, reset_draw, out_x, out_y, out_colour, done_flag);
@@ -2333,11 +2412,11 @@ module draw_module(in_x, in_y, in_colour, clock, draw, erase,resetn, out_x, out_
 	assign out_y = in_y + count[3:2];
 endmodule
 
-module DelayCounter(enable, clock, resetn, out);
+module SpeedCounter(enable, clock, resetn, out);
 	input enable, clock, resetn;
 	output out;
 	
-	reg [27:0] delay = 28'd10;
+	reg [27:0] delay = 28'd3;
 	reg [27:0] counter;
 	
 	always@(posedge clock)
@@ -2356,26 +2435,123 @@ module DelayCounter(enable, clock, resetn, out);
 	assign out = (counter == 28'd0) ? 1 : 0;
 endmodule
 
-module FrameCounter(enable, clock, resetn, out);
+
+
+module LifeCounter(enable, clock, resetn, life, out);
 	input enable, clock, resetn;
 	output out;
+	output reg [7:0] life;
 	
-	reg [3:0] frame_counter;
+	reg [7:0] delay = 8'b11111111;
 	
 	always@(posedge clock)
 	begin
 		if (resetn == 1'b0)
-			frame_counter <= 4'b0000;
+			life <= delay;
 		else if (enable == 1'b1)
 		begin
-			if (frame_counter == 4'b1111)
-				frame_counter <= 4'b0000;
+			if (life == 8'd0)
+				life <= delay;
+			else
+				life <= life - 1'b1;
+		end
+	end
+	
+	assign out = (life == 8'd0) ? 1 : 0;
+endmodule
+
+module SecondsCounter(enable, clock, resetn, out);
+	input enable, clock, resetn;
+	output out;
+	
+	//reg [27:0] delay = 28'd10;
+	reg [27:0] delay = 28'd50_000_000;
+	reg [27:0] counter;
+	
+	always@(posedge clock)
+	begin
+		if (resetn == 1'b0)
+			counter <= delay;
+		else if (enable == 1'b1)
+		begin
+			if (counter == 28'd0)
+				counter <= delay;
+			else
+				counter <= counter - 1'b1;
+		end
+	end
+	
+	assign out = (counter == 28'd0) ? 1 : 0;
+endmodule
+
+//module SecondsCounter(enable, clock, resetn, out);
+//	input enable, clock, resetn;
+//	output out;
+//	reg [27:0] counter;
+//	
+//	reg [27:0] delay = 28'd50000000;
+//	
+//	always@(posedge clock)
+//	begin
+//		if (resetn == 1'b0)
+//			counter <= delay;
+//		else if (enable == 1'b1)
+//		begin
+//			if (counter == 28'd0)
+//				counter <= delay;
+//			else
+//				counter <= counter - 1'b1;
+//		end
+//	end
+//	
+//	assign out = (counter == 28'd0) ? 1 : 0;
+//endmodule
+
+module DelayCounter(enable, clock, resetn, out);
+	input enable, clock, resetn;
+	output out;
+	
+	//reg [27:0] delay = 28'd10;
+	reg [27:0] delay = 28'd833333;
+	reg [27:0] counter;
+	
+	always@(posedge clock)
+	begin
+		if (resetn == 1'b0)
+			counter <= delay;
+		else if (enable == 1'b1)
+		begin
+			if (counter == 28'd0)
+				counter <= delay;
+			else
+				counter <= counter - 1'b1;
+		end
+	end
+	
+	assign out = (counter == 28'd0) ? 1 : 0;
+endmodule
+
+module FrameCounter(enable, clock, resetn, frame_limit, out);
+	input enable, clock, resetn;
+	input [5:0] frame_limit;
+	output out;
+	
+	reg [5:0] frame_counter;
+	
+	always@(posedge clock)
+	begin
+		if (resetn == 1'b0)
+			frame_counter <= 6'b000000;
+		else if (enable == 1'b1)
+		begin
+			if (frame_counter == frame_limit)
+				frame_counter <= 6'b000000;
 			else
 				frame_counter <= frame_counter + 1'b1;
 		end
 	end
 	
-	assign out = (frame_counter == 4'b1111) ? 1 : 0;
+	assign out = (frame_counter == frame_limit) ? 1 : 0;
 endmodule
 
 module YCounter(enable, clock, resetn, out);
@@ -3328,4 +3504,28 @@ module control(clock, resetn, go, done_flag, done_wait, enabled, erase, reset_co
 	        else
 	            current_state <= next_state;
 	    end // state_FFS
+endmodule
+
+
+module sev(hecks, SW);
+    input [9:0] SW;
+    output [6:0] hecks;
+
+    assign hecks[0] = ( ~SW[3] & ~SW[2] & ~SW[1] & SW[0] )|( ~SW[3] & SW[2] & ~SW[1] & ~SW[0] )|(SW[3] & ~SW[2] & SW[1] & SW[0] )|( SW[3] & SW[2] & ~SW[1] & SW[0]);
+
+    assign hecks[1] = ( ~SW[3] & SW[2] & ~SW[1] &   SW[0] )|
+							(  SW[3] &          SW[2] &  ~SW[0] )|
+	                   ( SW[3] &          SW[1] &   SW[0] )|
+							 (         SW[2] &  SW[1] & ~ SW[0]);
+
+    assign hecks[2] = ( ~SW[3] & ~ SW[2] & SW[1] & ~SW[0] )|( SW[3] & SW[2] & ~ SW[0] )|( SW[3] & SW[2] & SW[1]);
+
+    assign hecks[3] = ( ~SW[3] & SW[2] & ~SW[1] & ~SW[0] )|( ~SW[2] & ~SW[1] & SW[0] )|( SW[3] & ~SW[2] & SW[1] &~SW[0] )|( SW[2] & SW[1] & SW[0]);
+
+   assign  hecks[4] = ( ~SW[3] & SW[2] & ~SW[1] )|( ~SW[2] & ~SW[1] & SW[0] )|( ~SW[3] & SW[0]);
+
+   assign  hecks[5] = ( ~SW[3] & ~SW[2] & SW[0] )|( ~SW[3] & ~SW[2] & SW[1] )|( ~SW[3] & SW[1] & SW[0] )|( SW[3] & SW[2] & ~SW[1] & SW[0]);
+
+    assign hecks[6] = ( ~SW[3] & ~SW[2] & ~SW[1] )|( ~SW[3] & SW[2] & SW[1] & SW[0]) + (SW[3] & SW[2] & ~SW[1] & ~SW[0]);
+
 endmodule
